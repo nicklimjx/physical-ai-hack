@@ -1,0 +1,3 @@
+import type { WorldDefinition, WorldSnapshot } from '@ember/contracts';
+export interface TacticalProps {definition:WorldDefinition;snapshot:WorldSnapshot;selectedIds:readonly string[];onSelect(id:string):void}
+export function TacticalMap({definition,snapshot,selectedIds,onSelect}:TacticalProps){return <div className="tactical-map">{snapshot.drones.map((d)=><button key={d.id} className={selectedIds.includes(d.id)?'selected':''} style={{left:`${(d.position.x/(definition.width*definition.cellSizeM))*100}%`,top:`${100-(d.position.y/(definition.height*definition.cellSizeM))*100}%`}} onClick={()=>onSelect(d.id)} title={d.id}>✦</button>)}<span>TACTICAL PREVIEW</span></div>}

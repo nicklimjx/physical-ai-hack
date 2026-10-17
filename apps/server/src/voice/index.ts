@@ -1,0 +1,2 @@
+export interface VoiceModule { transcriptionToken(signal:AbortSignal):Promise<never>; audio(announcementId:string,signal:AbortSignal):Promise<never> }
+export const voiceUnavailable:VoiceModule={async transcriptionToken(signal){if(signal.aborted)throw signal.reason;throw new Error('Voice is unavailable in preview')},async audio(_announcementId,signal){if(signal.aborted)throw signal.reason;throw new Error('Voice is unavailable in preview')}};

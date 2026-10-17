@@ -1,0 +1,5 @@
+{
+  "name":"ember-command","private":true,"type":"module","workspaces":["packages/*","apps/*"],
+  "scripts":{"dev":"concurrently -k -n server,web -c yellow,cyan \"npm:dev --workspace @ember/server\" \"npm:dev --workspace @ember/web\"","typecheck":"tsc -b","start":"npm run start --workspace @ember/server"},
+  "devDependencies":{"@types/node":"^22.15.0","@types/react":"^19.0.0","@types/react-dom":"^19.0.0","concurrently":"^9.1.2","tsx":"^4.19.3","typescript":"^5.8.3"}
+}
