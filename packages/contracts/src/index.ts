@@ -19,7 +19,7 @@ export const WorldDefinitionSchema = z.strictObject({
 
 export const WeatherSchema = z.strictObject({ windMps: point, temperatureC: finite, humidity: finite.min(0).max(1) });
 export const SettingsSchema = z.strictObject({ paused: z.boolean(), speed: finite.min(0.1).max(10), spreadMultiplier: finite.min(0).max(5) });
-export const MissionSchema = z.strictObject({ id, squadId: id, type: MissionTypeSchema, status: MissionStatusSchema, target: point, source: z.enum(['auto', 'human']), pinned: z.boolean(), progress: finite.min(0).max(1), version: z.number().int().nonnegative() });
+export const MissionSchema = z.strictObject({ id, squadId: id, type: MissionTypeSchema, status: MissionStatusSchema, target: point, source: z.enum(['auto', 'human']), pinned: z.boolean(), progress: finite.min(0).max(1), version: z.number().int().nonnegative(), refillStartedAtSimSeconds: finite.nonnegative().optional() });
 export const DroneSchema = z.strictObject({ id, squadId: id, position: point, battery: finite.min(0).max(1), payload: finite.min(0).max(1), status: z.enum(['ready', 'travelling', 'working', 'returning']) });
 export const SquadSchema = z.strictObject({ id, name, droneIds: z.array(id), missionId: id.nullable(), version: z.number().int().nonnegative(), payload: finite.min(0).max(1) });
 export const EventSchema = z.discriminatedUnion('type', [
@@ -43,6 +43,7 @@ export const AssignmentSchema = z.strictObject({ squadId: id, type: MissionTypeS
 export const MissionProposalSchema = z.strictObject({ schemaVersion: z.literal(1), runId: id, decisionEpoch: z.number().int().nonnegative(), missionVersions: z.record(id, z.number().int().nonnegative()), assignments: z.array(AssignmentSchema), source: z.enum(['auto', 'human']), summary: name });
 
 export const OperatorCommandSchema = z.discriminatedUnion('type', [
+  z.strictObject({ type: z.literal('start_demo') }),
   z.strictObject({ type: z.literal('assign'), squadId: id, missionType: MissionTypeSchema, target: point }),
   z.strictObject({ type: z.literal('set_priority'), regionId: id, priority: z.number().int().min(0).max(3) }),
   z.strictObject({ type: z.literal('pause'), paused: z.boolean() }),
@@ -56,11 +57,28 @@ export const OperatorCommandSchema = z.discriminatedUnion('type', [
 ]);
 export const CommandEnvelopeSchema = z.strictObject({ schemaVersion: z.literal(1), runId: id, commandId: id, source: z.enum(['human', 'auto']), payload: OperatorCommandSchema });
 export const CommandResultSchema = z.strictObject({ schemaVersion: z.literal(1), runId: id, commandId: id, status: z.enum(['accepted', 'rejected', 'unavailable']), reason: name, appliedRevision: z.number().int().nonnegative().nullable(), missionIds: z.array(id), message: name });
-export const OperatorInputSchema = z.strictObject({ schemaVersion: z.literal(1), runId: id, requestId: id, text: z.string().min(1).max(2000), committed: z.literal(true) });
+export const ObservedFireSchema = z.strictObject({
+  schemaVersion: z.literal(1), runId: id, id, name, aliases: z.array(name).max(64),
+  regionIds: z.array(id), reportIds: z.array(id).max(64), observationIds: z.array(id).max(256), sourceDroneIds: z.array(id),
+  centroid: point, boundary: z.array(point).min(4).max(4), lastObservedSimSeconds: finite.nonnegative(),
+  status: z.enum(['fresh', 'stale', 'unknown']), extent: z.literal('observed footprint, not full fire front'),
+});
+export type ObservedFire = z.infer<typeof ObservedFireSchema>;
+
+export const OperatorInputSchema = z.strictObject({ schemaVersion: z.literal(1), runId: id, requestId: id, text: z.string().min(1).max(2000), committed: z.literal(true), selectedIds: z.array(id).max(32).optional(), targetPosition: point.optional() });
+export const OperatorActionSchema = z.discriminatedUnion('type', [
+  z.strictObject({ type: z.literal('assign'), squadId: id, missionType: z.enum(['monitor', 'suppress']), target: point, reportIds: z.array(id).max(64) }),
+  z.strictObject({ type: z.literal('recall'), squadId: id }),
+  z.strictObject({ type: z.literal('resume_auto'), squadId: id }),
+  z.strictObject({ type: z.literal('keep_current'), squadId: id }),
+]);
+export const OperatorBatchSchema = z.strictObject({ schemaVersion: z.literal(1), runId: id, requestId: id, decisionEpoch: z.number().int().nonnegative(), missionVersions: z.record(id, z.number().int().nonnegative()), actions: z.array(OperatorActionSchema).min(1).max(8) });
+export type OperatorAction = z.infer<typeof OperatorActionSchema>;
+export type OperatorBatch = z.infer<typeof OperatorBatchSchema>;
 export const AnnouncementSchema = z.strictObject({ schemaVersion: z.literal(1), runId: id, id, priority: z.enum(['routine', 'important', 'critical']), text: name, createdAt: finite, expiresAt: finite, missionIds: z.array(id), reportIds: z.array(id) });
 export const OperatorResponseSchema = z.strictObject({ schemaVersion: z.literal(1), runId: id, requestId: id, status: z.enum(['answered', 'unavailable']), text: name, commandResult: CommandResultSchema.nullable(), announcements: z.array(AnnouncementSchema) });
 export const ProviderStateSchema = z.strictObject({ provider: z.enum(['jev', 'gpt', 'voice']), status: z.enum(['preview', 'ready', 'unavailable', 'error']), label: name });
-export const WorldResponseSchema = z.strictObject({ definition: WorldDefinitionSchema, snapshot: WorldSnapshotSchema, risks: z.array(RiskReportSchema), announcements: z.array(AnnouncementSchema), providers: z.array(ProviderStateSchema), preview: z.boolean() }).refine((world) => world.definition.runId === world.snapshot.runId && world.risks.every((risk) => risk.runId === world.snapshot.runId) && world.announcements.every((announcement) => announcement.runId === world.snapshot.runId), 'World envelope run IDs must match').refine((world) => world.snapshot.dynamicCells.length === world.definition.width * world.definition.height, 'Dynamic cell count must equal width × height');
+export const WorldResponseSchema = z.strictObject({ definition: WorldDefinitionSchema, snapshot: WorldSnapshotSchema, risks: z.array(RiskReportSchema), incidents: z.array(ObservedFireSchema).max(32).optional(), announcements: z.array(AnnouncementSchema), providers: z.array(ProviderStateSchema), preview: z.boolean() }).refine((world) => world.definition.runId === world.snapshot.runId && world.risks.every((risk) => risk.runId === world.snapshot.runId) && world.announcements.every((announcement) => announcement.runId === world.snapshot.runId) && (world.incidents ?? []).every((incident) => incident.runId === world.snapshot.runId), 'World envelope run IDs must match').refine((world) => world.snapshot.dynamicCells.length === world.definition.width * world.definition.height, 'Dynamic cell count must equal width × height');
 export const WorldStreamEventSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('world'), schemaVersion: z.literal(1), runId: id, world: WorldResponseSchema }),
   z.strictObject({ type: z.literal('risk'), schemaVersion: z.literal(1), runId: id, report: RiskReportSchema }),
@@ -71,11 +89,11 @@ export const WorldStreamEventSchema = z.discriminatedUnion('type', [
 export const PlanningContextSchema = z.strictObject({
   schemaVersion: z.literal(1), runId: id, decisionEpoch: z.number().int().nonnegative(),
   definition: WorldDefinitionSchema, weather: WeatherSchema, observations: z.array(ObservationSchema),
-  incidents: z.array(IncidentSummarySchema), reports: z.array(RiskReportSchema),
+  incidents: z.array(IncidentSummarySchema), observedFires: z.array(ObservedFireSchema).max(32).optional(), conversation: z.array(z.strictObject({ role: z.enum(['user', 'assistant']), content: z.string().max(2000) })).max(16).optional(), reports: z.array(RiskReportSchema),
   squads: z.array(SquadSchema), drones: z.array(DroneSchema), missions: z.array(MissionSchema),
   feasibleCandidates: z.array(AssignmentSchema), missionVersions: z.record(id, z.number().int().nonnegative()),
   humanConstraints: z.array(z.strictObject({ squadId: id, kind: z.enum(['pinned', 'released']), missionId: id.nullable(), summary: name })),
-}).refine((context) => context.runId === context.definition.runId && context.observations.every((item) => item.runId === context.runId) && context.incidents.every((item) => item.runId === context.runId) && context.reports.every((item) => item.runId === context.runId), 'Planning context run IDs must match');
+}).refine((context) => context.runId === context.definition.runId && context.observations.every((item) => item.runId === context.runId) && context.incidents.every((item) => item.runId === context.runId) && context.reports.every((item) => item.runId === context.runId) && (context.observedFires ?? []).every((item) => item.runId === context.runId), 'Planning context run IDs must match');
 
 export type WorldDefinition = z.infer<typeof WorldDefinitionSchema>;
 export type WorldSnapshot = z.infer<typeof WorldSnapshotSchema>;

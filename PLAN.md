@@ -28,10 +28,10 @@ This is a stylised simulated physical system, not validated wildfire forecasting
 | Criterion | Build choice | Evidence in the demo |
 |---|---|---|
 | Execution | One complete observation -> assessment -> planning -> action loop, two linked views, working voice | A threat changes actual missions and physical state without manual stage management |
-| Problem Identification | Reduce operator overload when several areas need attention and resources are limited | The system protects a second area while maintaining the first response |
+| Problem Identification | Reduce operator overload when several areas need attention and resources are limited | Available groups suppress independently observed fires while maintaining existing responses |
 | UX | Voice for intent, map for spatial understanding, short proactive reports, visible overrides | Operator understands what is happening without opening logs or approving routine actions |
-| Creativity & Real-World Impact | Combine local risk assessment, autonomous resource coordination and human local knowledge | A prevention mission changes spread, and the operator can alter its priority |
-| Demo clarity | Show one causal chain with visible evidence and honest labels | Observation, assessment, decision, travelling drones and applied protection are distinguishable |
+| Creativity & Real-World Impact | Combine local risk assessment, autonomous resource coordination and human local knowledge | Firefighting groups travel, spend payload and measurably reduce observed fire heat |
+| Demo clarity | Show one causal chain with visible evidence and honest labels | Observation, assessment, suppression decision, travelling groups and physical heat reduction are distinguishable |
 
 Target user: an incident-command operator supervising multiple robotic teams. The meaningful problem is attention and resource allocation, not replacing professional fire command with a chatbot.
 
@@ -56,7 +56,7 @@ Validated mission proposal
         |
 Local mission scheduler and deterministic squad controllers
         |
-Travel / suppress / protect / monitor / return and refill
+Patrol / suppress / recall / return and refill
         |
 New observations and mission events -> repeat
 
@@ -104,9 +104,9 @@ Avoid mission churn: keep an active mission unless it completes, becomes invalid
 ### Must ship
 
 1. One shared world with 3D scene and 2D tactical view.
-2. Three squads of four drones. Use squad names **Red, Blue, Gold** and neighbourhood names **Alpha, Bravo, Charlie** to reduce voice ambiguity.
+2. Eight groups of four drones. Use group names **Alpha** through **Hotel** and neighborhood names **Community 1** through **Community 3** to avoid voice ambiguity.
 3. Local observations -> JEV reports -> GPT planning -> autonomous missions.
-4. Suppress, protect-then-monitor, monitor, recall and resume-auto actions.
+4. Suppress, patrol/monitor, recall and resume-auto actions.
 5. Prevention changes the fire calculation and consumes finite resources.
 6. Voice intervention, status questions and selective proactive spoken reports.
 7. Persistent human overrides with visible ownership.
@@ -140,20 +140,20 @@ Protection appears only when a drone reaches its target and spends payload. It i
 
 `idle -> travelling -> working -> monitoring / returning -> refilling -> travelling / idle`
 
-A protect-then-monitor mission treats a bounded set of unburned cells on the threat-facing neighbourhood edge, then patrols. If cells ignite during approach, the controller handles them as suppression targets within the mission. Nearest-unassigned-cell allocation is sufficient.
+All groups share the same firefighting capability. Patrol/monitor missions use known static community centroids; suppression missions target only fresh reports linked to retained local observations of burning. Returning groups refill and resume their pinned suppression target until the observed fire is actually extinguished.
 
 ### Scenarios
 
 Latest user direction: include houses and trees in the initial world, but defer map-type design until the engine is running. Build one coherent layout first; the following are provisional ideas, not a requirement to deliver two maps before integration. Houses and trees should correspond to building/vegetation fuel semantics rather than being exclusively decorative.
 
-- **Woodland Edge:** forest fire near Alpha; downwind wooden Bravo; road/water boundaries and nearby base.
+- **Woodland Edge:** observed forest fire near Community 1; downwind wooden Community 2; road/water boundaries and nearby base.
 - **River Crossing:** separate fuel corridors, different base/settlement layout; same mechanics and schema.
 
-Pause freezes physical changes, including protection decay, movement and resource use. Mission assignment can still occur. Speed changes simulated time per wall second; spread multiplier changes fire behaviour. Keep those controls distinct.
+Pause freezes physical changes, including movement and resource use. Mission assignment can still occur. Speed changes simulated time per wall second; spread multiplier changes fire behaviour. Keep those controls distinct.
 
 Reset/map change creates a new run ID and clears missions, observations, pending provider results and spoken announcements. Same seed on reset by default. Weather edits apply on the next step. No stale API reply may resurrect a mission from an old run.
 
-Show burning cells, burned area, protected cells, threatened observed structures and squad resources. Risk categories are heuristic/AI assessments, not calibrated fire arrival forecasts. Do not report "homes saved" without an actual comparison.
+Show burning cells, burned area, threatened observed structures and firefighter group resources. Risk categories are heuristic/AI assessments, not calibrated fire arrival forecasts. Do not report "homes saved" without an actual comparison.
 
 ## 6. JEV assessment layer
 
@@ -212,9 +212,9 @@ Press-to-talk stops current playback and suppresses listening to the system's ow
 ### Speak selectively
 
 - **Routine action:** act silently; update the dashboard.
-- **Significant autonomous intervention:** act, then inform. "Bravo is now high risk. I've assigned Blue squad to protect its eastern edge."
-- **Important constraint:** explain, without blocking autonomous actions elsewhere. "All squads are committed. Bravo remains exposed; Red is still pinned to Alpha."
-- **Useful suggestion:** optional non-blocking suggestion when the system cannot act within its authority. "Releasing Red would let me reinforce Bravo."
+- **Significant autonomous intervention:** act, then inform. "Community 2 has observed burning. Bravo group is moving to suppress it."
+- **Important constraint:** explain, without blocking autonomous actions elsewhere. "All groups are committed. Community 2 remains exposed; Alpha is still pinned to Community 1."
+- **Useful suggestion:** optional non-blocking suggestion when the system cannot act within its authority. "Releasing Alpha would let me reinforce Community 2."
 - **Ambiguous human instruction:** ask one clarification before that instruction, not before unrelated autonomous work.
 
 The system should not ask "shall I deploy?" when it already has permission and resources to do so. Suggestions should not become an approval queue.
@@ -375,7 +375,7 @@ Time budget is still unknown. If approximately six focused hours remain:
 4. **Next hour:** voice override and proactive acknowledgement; settings and visual clarity. Discuss additional map types only after the engine works.
 5. **Remaining time:** one rehearsal, targeted repair and presentation polish.
 
-First vertical slice is one observed risk and one autonomously assigned protection mission. Then add multiple squads and human intervention. Do not spend most of the day polishing terrain before the autonomy loop works.
+First vertical slice is a locally observed active fire, autonomous shared-group suppression, and real heat/resource change. Then add multiple groups and human intervention. Do not spend most of the day polishing terrain before the autonomy loop works.
 
 Cut richer smoke, follow camera, comparison replay and full-duplex barge-in first. Keep one proactive announcement, real JEV/GPT integration and meaningful human override. Provider outage fallback keeps the app alive but does not count as completion of the AI feature.
 
@@ -384,11 +384,10 @@ No new or modified tests. Each worker runs one cheap build/typecheck or focused 
 ### Three-minute demo
 
 1. Show woodland map and both synchronized views. Explain that the AI sees local observations, not hidden simulation truth.
-2. Ignite Alpha. A scout observes it; show JEV report and GPT dispatch. No operator approval.
-3. Turn wind toward wooden Bravo. Local reports indicate increasing risk. GPT assigns reserve protection automatically.
-4. Hear: "Bravo is now high risk. Blue squad is moving to protect it." Show assignment and travelling drones.
-5. Intervene: "Prioritize Bravo's eastern edge and keep Red on Alpha." Show accepted human constraint; autonomy elsewhere continues.
-6. Watch arriving drones spend payload and create real temporary protection. Ask for a short status update.
+2. Start the scheduled demonstration ignition. A nearby group observes it; show the local report and automatic suppression dispatch. No operator approval.
+3. Show all groups use the same firefighter capability. Reinforce ongoing observed fires with available unpinned groups.
+4. Say: "Alpha fight Community 2." Show the fresh report evidence, human pin, group travel, payload use and actual heat reduction.
+5. Say: "Bravo monitor Community 1," then recall and resume a named group. Show known-centroid patrol and explicit pin release.
 7. Reset/change map; old missions and delayed speech must not return. Show a typed fallback only if useful.
 
 If no reserve is available, narrate the constraint and suggest a change without freezing the rest of the system. Do not fake successful deployment.
